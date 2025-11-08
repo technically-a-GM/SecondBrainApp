@@ -13,4 +13,13 @@ const UserSchema = new Schema({
 })
 
 
+const CourseSchema = new Schema({
+    title : String,
+    link : String,
+    tags : [{type : ObjectId , ref : "tags" }],
+    userId : {type : ObjectId , ref : "user" , required : true}
+})  
+
+
 export const UserModel = model("user",UserSchema)
+export const ContentModel = model("Content",CourseSchema)

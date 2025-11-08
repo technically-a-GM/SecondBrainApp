@@ -5,8 +5,11 @@ import mongoose from "mongoose"
 import {z} from "zod"
 import bcrypt from "bcrypt"
 import dotenv from "dotenv"
-import { UserModel } from "./db.js"
-// import { InputValidation } from "./middleware.js"
+import { ContentModel, UserModel } from "./db.js"
+import { Authentication, InputValidation } from "./middleware.js"
+import { JWT_USER_SECRET } from "./config.js"
+
+
 
 
 
@@ -15,39 +18,7 @@ const app = express()
 app.use(express.json())
 
 
-app.get("/signup",async function(req,res,next){
-
-const ValidateUser = z.object({
-    Username : z.string().min(4).max(20),
-    Password : z.string().min(4).max(20),
-    name : z.string().min(4).max(20),
-    age : z.number()
-
-
-})
-
-const result = ValidateUser.safeParse(req.body)
-
-const duplicateUser  = await UserModel.findOne({
-    Username : req.body.Username
-})
-
-if(result.success && !duplicateUser){
-    next()
-}
-
-else if (duplicateUser){
-    res.status(404).json({
-        error : "DuplicateUser"
-    })
-}
-else
-{
-    res.json({
-        error : result.error
-    })
-}
-},async function(req,res){
+app.get("/signup",InputValidation,async function(req,res){
 const Username  = req.body.Username
 const Password  = req.body.Password
 const name  = req.body.name
@@ -67,20 +38,76 @@ res.json({
 
 })
 
-app.get("/",function(req,res){
-    
+app.get("/signin",async function(req,res){
+    const {Username , Password } = req.body
+    const UserFound = await UserModel.findOne({
+        Username
+    })
+    if(!UserFound){
+        return res.status(404).json({
+            error : "User not found"
+        })
+
+    }
+    try{
+        if (!JWT_USER_SECRET) {
+  throw new Error("JWT_USER_SECRET is not defined in environment variables");
+}
+    const token = jwt.sign({
+     id : UserFound._id
+    },JWT_USER_SECRET)
+    res.json({
+        token : token
+    })
+    }
+    catch(e){
+       res.status(404).json({
+        error : "Inavlid Credentials"
+       })
+    }
 })
 
-app.get("/",function(req,res){
+app.post("/content",Authentication,async function(req,res){
+    //@ts-ignore
+    const userId = req.userID
+    const link = req.body.link
+    const type = req.body.type
+    await ContentModel.create({
+        link,
+        type,
+        userId,
+        tags : []
+    })
+
+    res.json({
+        mess : "Content created"
+    })
     
+
 })
 
-app.get("/",function(req,res){
-    
+app.get("/content",Authentication,async function(req,res){
+    //@ts-ignore
+    const userId = req.userID
+      const content  = await ContentModel.find({
+        userId
+    }).populate("userId","Username")
+    res.json({
+        content 
+    })
 })
 
-app.get("/",function(req,res){
-    
+app.delete("/content",Authentication,async function(req,res){
+    const contentId = req.body.contentId
+    //@ts-ignore
+    const userId = req.userID
+    await ContentModel.deleteMany({
+        userId,
+        _id : contentId
+    })
+    res.json({
+        mess : "content deleted"
+    })
 })
 
 app.get("/",function(req,res){
@@ -94,7 +121,7 @@ const mongoUrl = process.env.MONGO_URL!
 const connectionEstabilished = async ()=> {
 try{
 await mongoose.connect(mongoUrl)
-
+app.listen(PORT)
 }
 catch(e){
 console.log(`Connection to database failed with this error : ${e}`)
@@ -103,4 +130,3 @@ console.log(`Connection to database failed with this error : ${e}`)
 
 connectionEstabilished()
 
-app.listen(3000)
