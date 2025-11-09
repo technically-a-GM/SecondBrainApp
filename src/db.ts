@@ -20,6 +20,12 @@ const CourseSchema = new Schema({
     userId : {type : ObjectId , ref : "user" , required : true}
 })  
 
+const LinkSchema = new Schema({
+    hash: {type : String},
+    userId : {type : ObjectId , ref : "user" , required : true}
+})
+
 
 export const UserModel = model("user",UserSchema)
 export const ContentModel = model("Content",CourseSchema)
+export const LinkModel = model("Link",LinkSchema)

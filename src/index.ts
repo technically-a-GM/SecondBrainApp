@@ -5,9 +5,10 @@ import mongoose from "mongoose"
 import {z} from "zod"
 import bcrypt from "bcrypt"
 import dotenv from "dotenv"
-import { ContentModel, UserModel } from "./db.js"
+import { ContentModel, LinkModel, UserModel } from "./db.js"
 import { Authentication, InputValidation } from "./middleware.js"
 import { JWT_USER_SECRET } from "./config.js"
+import { hashed } from "./hash.js"
 
 
 
@@ -110,9 +111,64 @@ app.delete("/content",Authentication,async function(req,res){
     })
 })
 
+app.post("/content/share/link",Authentication,async function(req,res){
+    //@ts-ignore
+    const userId = req.userID
+    const hash = hashed(10)
+    const share  = req.body.share
+    if(share){
+    await LinkModel.create({
+        hash : hash,
+        userId: userId
+    })
+    res.json({
+         hash : `/content/share/link/${hash}`
+    })
+
+    }
+    else {
+        await LinkModel.deleteMany({
+             hash : hash,
+             userId: userId
+        })
+    }
+})
+
+app.get("/content/share/link/:hashedPass",async function(req,res){
+    const hashedPass = req.params.hashedPass
+    
+    const Match = await LinkModel.findOne({
+        hash : hashedPass
+    })
+    if(!Match){
+        res.json({
+            mess : "Invalid input"
+        })
+        return 
+    }
+    const userId = Match.userId
+
+    const Username = await UserModel.findOne({
+        _id : userId
+    })
+    
+    const content = await ContentModel.find({
+        userId 
+    })
+
+    res.json({
+        Username : Username?.Username,
+        content
+    })
+
+
+})
+
+
 app.get("/",function(req,res){
     
 })
+
 
 const PORT = process.env.PORT
 const mongoUrl = process.env.MONGO_URL!
